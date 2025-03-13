@@ -131,8 +131,8 @@ namespace SauceHappy.Hooks1
             {
                 string smtpServer = "smtp.gmail.com";
                 int smtpPort = 587;
-                string senderEmail = "vaishnavimbhat03@gmail.com";
-                string senderPassword = "gadc mhyr pkpx jljf";
+                string senderEmail = "vaishnavimanjalagiri@gmail.com";
+                string senderPassword = "fnnw apvy sadw xjoo";
                 string recipientEmail = "190230@sdmcujire.in";
                 
                 MailMessage mail = new MailMessage
