@@ -3,10 +3,10 @@ name: Run Tests and Send Email on Failure
 on:
   push:
     branches:
-      - main  # Change if using a different branch
+      - master  # Change if using a different branch
   pull_request:
     branches:
-      - main
+      - master
 
 jobs:
   test-and-report:
