@@ -1,45 +1,50 @@
-name: Run Tests and Send Email on Failure
-
+name: .NET CI
+ 
 on:
   push:
     branches:
-      - master  # Change if using a different branch
+      - master
   pull_request:
     branches:
       - master
-
+    types:
+      - opened
+      - synchronize
+ 
+concurrency:
+  group: dotnet-build-${{ github.ref }}
+  cancel-in-progress: true
+ 
 jobs:
-  test-and-report:
-    runs-on: windows-latest  # Using Windows runner
-
+  build:
+    runs-on: windows-latest  # ✅ Runs on Windows
+ 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
+      - name: Checkout Code
+        uses: actions/checkout@v4  # ✅ Latest version
+ 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 6.0.x  # Adjust based on your project
-
+          dotnet-version: '6.0.x'
+ 
       - name: Restore Dependencies
         run: dotnet restore
-
-      - name: Build Solution
-        run: dotnet build --no-restore --configuration Debug
-
+ 
+      - name: Build Project
+        run: dotnet build --no-restore
+ 
+     
+ 
       - name: Run Tests
-        id: run-tests
-        run: dotnet test --logger trx
-        continue-on-error: true  # Ensures next steps execute even if tests fail
-
-      - name: Upload Failed Screenshots
-        if: failure()  # Runs only if tests fail
+        run: dotnet test --no-build --verbosity normal
+        env:
+          DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 0  # ✅ Fix for globalization errors
+ 
+      - name: Upload ExtentReport
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: failed-screenshots
-          path: SauceHappy/bin/Debug/net6.0/Reports/Screenshots/*.png
-          if-no-files-found: warn  # Prevents failure if screenshots are missing
-
-      - name: Send Email with Test Report & Screenshots
-        if: failure()  # Runs only if tests fail
-        run: dotnet test --filter "SauceHappy.Hooks1.Hooks.SendEmailWithGmail"
+          name: extent-report
+          #path: TestResults/ExtentReport.html  # ✅ Correct path for report storage
+          path: bin/Debug/net6.0/ExtentReport.html
