@@ -1,89 +1,39 @@
-name: Run SpecFlow Selenium Tests and Send Email on Failure
+name: Selenium Tests with Email Reporting
 
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
     branches:
-      - main
+      - master
+  workflow_dispatch: # Allows manual trigger
 
 jobs:
   test:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET Core
-        uses: actions/setup-dotnet@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 8.0.x  # Update if using a different version
+          dotnet-version: '6.0.x'
 
-      - name: Restore dependencies
+      - name: Restore Dependencies
         run: dotnet restore
 
-      - name: Build the project
-        run: dotnet build --configuration Release
+      - name: Build Solution
+        run: dotnet build --no-restore --configuration Release
 
-      - name: Run SpecFlow Tests and Capture Failures
-        id: run_tests
-        shell: pwsh
+      - name: Run Selenium Tests
+        run: dotnet test --logger "trx;LogFileName=test_results.trx"
+        continue-on-error: true
+
+      - name: Send Email with Failed Screenshots
+        if: failure() # Runs only if the test fails
         run: |
-          $ErrorActionPreference = "Continue"  
-          $result = dotnet test --logger "trx;LogFileName=test-results.trx" 2>&1 | Tee-Object -Variable output
-          echo "$output" > test_results.txt
-          if ($result -match "Failed!") {
-            echo "TEST_FAILED=true" >> $env:GITHUB_ENV
-          }
-        continue-on-error: true  
-
-      - name: Debug Test Failure Flag
-        shell: pwsh
-        run: echo "Test failure "
-
-      - name: Extract Failed Test Cases
-        if: env.TEST_FAILED == 'true'
-        shell: pwsh
-        run: |
-          $failedTests = Select-String -Path test_results.txt -Pattern "Failed\s+.*" | ForEach-Object { $_.Line }
-          echo "FAILED TEST CASES:"
-          echo "$failedTests"
-          echo "$failedTests" > failed_tests.txt
-
-      - name: Capture Screenshot on Failure
-        if: env.TEST_FAILED == 'true'
-        shell: pwsh
-        run: |
-          mkdir -p screenshots
-          Get-ChildItem -Path . -Recurse -Filter "*.png" | Copy-Item -Destination screenshots/
-
-
-      - name: Upload Screenshot as Artifact
-        if: env.TEST_FAILED == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: failed-test-screenshots
-          path: screenshots/
-
-      - name: Send Email Notification if Tests Fail
-        if: env.TEST_FAILED == 'true'
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Automation Tests Failed"
-          body: |
-            The following test cases failed:
-            
-            ${{ env.FAILED_TESTS_CONTENT }}
-            
-            Screenshots of failures are attached in GitHub Artifacts.
-            
-            Check the GitHub Actions logs for more details.
-          to: ""
-          from: "vaishnavimanjalagiri@gmail.com"
-          attachments: "screenshots/*"  
+          echo "Sending email with failed screenshots..."
+          python send_email.py
