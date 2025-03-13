@@ -30,10 +30,15 @@ jobs:
 
       - name: Run Selenium Tests
         run: dotnet test --logger "trx;LogFileName=test_results.trx"
-        continue-on-error: true
+        continue-on-error: true # Ensures workflow continues even if tests fail
+
+      - name: Upload Failed Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-screenshots
+          path: SauceHappy/Screenshots/*.png # Ensure this is the correct path where your Hooks save screenshots
 
       - name: Send Email with Failed Screenshots
         if: failure() # Runs only if the test fails
-        run: |
-          echo "Sending email with failed screenshots..."
-          python send_email.py
+        run: python send_email.py
