@@ -29,16 +29,19 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Run Selenium Tests
-        run: dotnet test --logger "trx;LogFileName=test_results.trx"
-        continue-on-error: true # Ensures workflow continues even if tests fail
+        id: run-tests
+        run: |
+          dotnet test --logger "trx;LogFileName=test_results.trx"
+          echo "TEST_STATUS=$?" >> $GITHUB_ENV
+        continue-on-error: true # Allows next steps to execute even if tests fail
 
       - name: Upload Failed Screenshots
-        if: failure()
+        if: always() # Runs regardless of test success/failure
         uses: actions/upload-artifact@v4
         with:
           name: failed-screenshots
-          path: SauceHappy/Screenshots/*.png # Ensure this is the correct path where your Hooks save screenshots
+          path: SauceHappy/Screenshots/*.png # Ensure Hooks save screenshots here
 
       - name: Send Email with Failed Screenshots
-        if: failure() # Runs only if the test fails
-        run: python send_email.py
+        if: always()
+        run: dotnet run --project SauceHappy/EmailSender.csproj
