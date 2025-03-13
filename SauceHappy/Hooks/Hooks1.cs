@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Threading;
+using System.Collections.Generic;
 using NUnit.Framework;
 using OpenQA.Selenium;
 using TechTalk.SpecFlow;
@@ -22,6 +23,7 @@ namespace SauceHappy.Hooks1
         private static ExtentSparkReporter _sparkReporter;
         private static string reportPath;
         private static string screenshotsDir;
+        private static List<string> failedScreenshots = new List<string>();
 
         public Hooks(ScenarioContext scenarioContext)
         {
@@ -31,13 +33,12 @@ namespace SauceHappy.Hooks1
         [BeforeTestRun]
         public static void BeforeTestRun()
         {
-            driver = new OpenQA.Selenium.Firefox.FirefoxDriver(); // or replace with your desired browser driver
-
-
+            driver = new OpenQA.Selenium.Firefox.FirefoxDriver();
+            
             string reportsDir = Path.Combine(Directory.GetCurrentDirectory(), "Reports");
             Directory.CreateDirectory(reportsDir);
             reportPath = Path.Combine(reportsDir, "ExtentReport.html");
-
+            
             screenshotsDir = Path.Combine(reportsDir, "Screenshots");
             Directory.CreateDirectory(screenshotsDir);
 
@@ -64,7 +65,7 @@ namespace SauceHappy.Hooks1
         {
             string stepText = _scenarioContext.StepContext.StepInfo.Text;
             string screenshotPath = CaptureScreenshot(_scenarioContext.ScenarioInfo.Title, stepText);
-
+            
             if (_scenarioContext.TestError == null)
             {
                 _scenario.Log(Status.Pass, stepText);
@@ -75,6 +76,7 @@ namespace SauceHappy.Hooks1
                 {
                     _scenario.Log(Status.Fail, stepText,
                         MediaEntityBuilder.CreateScreenCaptureFromPath(screenshotPath).Build());
+                    failedScreenshots.Add(screenshotPath);
                 }
                 else
                 {
@@ -108,11 +110,11 @@ namespace SauceHappy.Hooks1
                 }
                 Thread.Sleep(500);
                 Screenshot screenshot = ((ITakesScreenshot)driver).GetScreenshot();
-
+                
                 string sanitizedStepName = string.Join("_", stepName.Split(Path.GetInvalidFileNameChars()));
                 string fileName = $"{scenarioName}_{sanitizedStepName}.png";
                 string filePath = Path.Combine(screenshotsDir, fileName);
-
+                
                 screenshot.SaveAsFile(filePath);
                 return filePath;
             }
@@ -132,15 +134,15 @@ namespace SauceHappy.Hooks1
                 string senderEmail = "vaishnavimbhat03@gmail.com";
                 string senderPassword = "gadc mhyr pkpx jljf";
                 string recipientEmail = "190230@sdmcujire.in";
-
+                
                 MailMessage mail = new MailMessage
                 {
                     From = new MailAddress(senderEmail),
                     Subject = "SpecFlow Test Report",
-                    Body = "Attached is the Extent Report from the latest test execution.",
+                    Body = "Attached is the Extent Report and failed test screenshots from the latest execution.",
                     IsBodyHtml = false
                 };
-
+                
                 mail.To.Add(recipientEmail);
                 if (File.Exists(reportPath))
                 {
@@ -151,13 +153,22 @@ namespace SauceHappy.Hooks1
                 {
                     TestContext.Progress.WriteLine("❌ Report file not found!");
                 }
-
+                
+                foreach (var screenshot in failedScreenshots)
+                {
+                    if (File.Exists(screenshot))
+                    {
+                        mail.Attachments.Add(new Attachment(screenshot));
+                        TestContext.Progress.WriteLine($"✅ Attached Screenshot: {screenshot}");
+                    }
+                }
+                
                 SmtpClient smtp = new SmtpClient(smtpServer, smtpPort)
                 {
                     Credentials = new NetworkCredential(senderEmail, senderPassword),
                     EnableSsl = true
                 };
-
+                
                 smtp.Send(mail);
                 TestContext.Progress.WriteLine("✅ Email sent successfully via Gmail SMTP!");
             }
