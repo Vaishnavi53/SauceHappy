@@ -3,14 +3,14 @@ name: Run Tests and Send Email on Failure
 on:
   push:
     branches:
-      - main  # Change branch if needed
+      - main  # Change if using a different branch
   pull_request:
     branches:
       - main
 
 jobs:
   test-and-report:
-    runs-on: windows-latest  # Use Windows runner
+    runs-on: windows-latest  # Using Windows runner
 
     steps:
       - name: Checkout Repository
@@ -19,7 +19,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 6.0.x  # Change if using a different version
+          dotnet-version: 6.0.x  # Adjust based on your project
 
       - name: Restore Dependencies
         run: dotnet restore
@@ -30,7 +30,7 @@ jobs:
       - name: Run Tests
         id: run-tests
         run: dotnet test --logger trx
-        continue-on-error: true  # Ensures next steps run even if tests fail
+        continue-on-error: true  # Ensures next steps execute even if tests fail
 
       - name: Upload Failed Screenshots
         if: failure()  # Runs only if tests fail
@@ -38,8 +38,8 @@ jobs:
         with:
           name: failed-screenshots
           path: SauceHappy/bin/Debug/net6.0/Reports/Screenshots/*.png
-          if-no-files-found: warn  # Prevents hard failure if no screenshots exist
+          if-no-files-found: warn  # Prevents failure if screenshots are missing
 
-      - name: Send Email with Failed Screenshots
+      - name: Send Email with Test Report & Screenshots
         if: failure()  # Runs only if tests fail
-        run: dotnet test --filter "Hooks.SendEmailOnFailure"  # Calls the email method in Hooks file
+        run: dotnet test --filter "SauceHappy.Hooks1.Hooks.SendEmailWithGmail"
