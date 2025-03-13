@@ -1,47 +1,47 @@
-name: Selenium Tests with Email Reporting
+name: Run Tests and Send Email
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
-  workflow_dispatch: # Allows manual trigger
+on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Set up .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: 6.0.x
 
       - name: Restore Dependencies
         run: dotnet restore
 
       - name: Build Solution
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --configuration Release --no-restore
 
-      - name: Run Selenium Tests
-        id: run-tests
-        run: |
-          dotnet test --logger "trx;LogFileName=test_results.trx"
-          echo "TEST_STATUS=$?" >> $GITHUB_ENV
-        continue-on-error: true # Allows next steps to execute even if tests fail
+      - name: Run Tests
+        continue-on-error: true  # Ensures the workflow continues even if tests fail
+        run: dotnet test --logger trx --results-directory TestResults
 
       - name: Upload Failed Screenshots
-        if: always() # Runs regardless of test success/failure
+        if: failure()  # Only upload if the tests fail
         uses: actions/upload-artifact@v4
         with:
           name: failed-screenshots
-          path: SauceHappy/Screenshots/*.png # Ensure Hooks save screenshots here
+          path: SauceHappy/Screenshots/*.png
+          if-no-files-found: warn  # Prevents job failure if no files are found
+
+      - name: Debug File Paths (Check Where Screenshots Are Saved)
+        if: always()  # Run this even if previous steps fail
+        run: ls -R SauceHappy  # Lists all files in the repository
 
       - name: Send Email with Failed Screenshots
-        if: always()
-        run: dotnet run --project SauceHappy/EmailSender.csproj
+        if: failure()  # Only send email if tests fail
+        run: |
+          if [ -f "SauceHappy/EmailSender/EmailSender.csproj" ]; then
+            dotnet run --project SauceHappy/EmailSender/EmailSender.csproj
+          else
+            echo "EmailSender.csproj not found. Skipping email notification."
+          fi
