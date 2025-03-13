@@ -266,6 +266,7 @@ C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.Ge
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.AssemblyInfoInputs.cache
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.AssemblyInfo.cs
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.csproj.CoreCompileInputs.cache
+C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.sourcelink.json
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.csproj.Up2Date
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\SauceHappy.dll
 C:\Users\vaman\source\repos\SauceHappy\SauceHappy\obj\Debug\net6.0\refint\SauceHappy.dll

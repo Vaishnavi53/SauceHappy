@@ -1,20 +1,18 @@
 ﻿using System;
 using System.IO;
+using System.Net;
+using System.Net.Mail;
+using System.Threading;
+using NUnit.Framework;
+using OpenQA.Selenium;
+using TechTalk.SpecFlow;
 using AventStack.ExtentReports;
 using AventStack.ExtentReports.Reporter;
-using AventStack.ExtentReports.Model;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using TechTalk.SpecFlow;
-using NUnit.Framework;
-using AventStack.ExtentReports.Gherkin;
-using OpenQA.Selenium.Firefox;
-using System.Security.Policy;
 
-namespace SauceHappy.Hooks
+namespace SauceHappy.Hooks1
 {
     [Binding]
-    public class Hooks1
+    public class Hooks
     {
         private static IWebDriver driver;
         private readonly ScenarioContext _scenarioContext;
@@ -22,8 +20,10 @@ namespace SauceHappy.Hooks
         private static ExtentTest _feature;
         private ExtentTest _scenario;
         private static ExtentSparkReporter _sparkReporter;
+        private static string reportPath;
+        private static string screenshotsDir;
 
-        public Hooks1(ScenarioContext scenarioContext)
+        public Hooks(ScenarioContext scenarioContext)
         {
             _scenarioContext = scenarioContext;
         }
@@ -31,11 +31,15 @@ namespace SauceHappy.Hooks
         [BeforeTestRun]
         public static void BeforeTestRun()
         {
-            string reportDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Reports");
-            string reportPath = Path.Combine(reportDirectory, "ExtentReport.html");
+            driver = new OpenQA.Selenium.Firefox.FirefoxDriver(); // or replace with your desired browser driver
 
-            // ✅ Ensure Reports Directory Exists
-            Directory.CreateDirectory(reportDirectory);
+
+            string reportsDir = Path.Combine(Directory.GetCurrentDirectory(), "Reports");
+            Directory.CreateDirectory(reportsDir);
+            reportPath = Path.Combine(reportsDir, "ExtentReport.html");
+
+            screenshotsDir = Path.Combine(reportsDir, "Screenshots");
+            Directory.CreateDirectory(screenshotsDir);
 
             _sparkReporter = new ExtentSparkReporter(reportPath);
             _extent = new ExtentReports();
@@ -51,15 +55,8 @@ namespace SauceHappy.Hooks
         [BeforeScenario]
         public void Setup()
         {
-            TestContext.Progress.WriteLine("Initializing WebDriver...");
-
-            if (driver == null)
-            {
-                driver = new FirefoxDriver();
-            }
-
-            _scenarioContext["WebDriver"] = driver;
             _scenario = _feature.CreateNode(_scenarioContext.ScenarioInfo.Title);
+            _scenarioContext["WebDriver"] = driver;
         }
 
         [AfterStep]
@@ -70,15 +67,7 @@ namespace SauceHappy.Hooks
 
             if (_scenarioContext.TestError == null)
             {
-                if (screenshotPath != null)
-                {
-                    _scenario.Log(Status.Pass, stepText,
-                        MediaEntityBuilder.CreateScreenCaptureFromPath(screenshotPath).Build());
-                }
-                else
-                {
-                    _scenario.Log(Status.Pass, stepText);
-                }
+                _scenario.Log(Status.Pass, stepText);
             }
             else
             {
@@ -91,25 +80,21 @@ namespace SauceHappy.Hooks
                 {
                     _scenario.Log(Status.Fail, stepText);
                 }
-
                 _scenario.Log(Status.Fail, _scenarioContext.TestError.Message);
-            }
-        }
-
-        [AfterScenario]
-        public void TearDown()
-        {
-            if (driver != null)
-            {
-                driver.Quit();
-                driver = null;
             }
         }
 
         [AfterTestRun]
         public static void AfterTestRun()
         {
+            if (driver != null)
+            {
+                driver.Quit();
+                driver.Dispose();
+                driver = null;
+            }
             _extent.Flush();
+            SendEmailWithGmail();
         }
 
         private string CaptureScreenshot(string scenarioName, string stepName)
@@ -118,27 +103,18 @@ namespace SauceHappy.Hooks
             {
                 if (driver == null || driver.WindowHandles.Count == 0)
                 {
-                    TestContext.Progress.WriteLine("WebDriver is null or browser is closed. Skipping screenshot.");
+                    TestContext.Progress.WriteLine("No active browser window. Skipping screenshot.");
                     return null;
                 }
-
-                Thread.Sleep(500);  // ✅ Small Wait Before Capturing Screenshot
+                Thread.Sleep(500);
                 Screenshot screenshot = ((ITakesScreenshot)driver).GetScreenshot();
 
-                string reportDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Reports");
-                string screenshotDirectory = Path.Combine(reportDirectory, "Screenshots");
-
-                Directory.CreateDirectory(screenshotDirectory);  // ✅ Ensure Folder Exists
-
-                // ✅ Generate a Safe Filename
                 string sanitizedStepName = string.Join("_", stepName.Split(Path.GetInvalidFileNameChars()));
                 string fileName = $"{scenarioName}_{sanitizedStepName}.png";
-                string filePath = Path.Combine(screenshotDirectory, fileName);
+                string filePath = Path.Combine(screenshotsDir, fileName);
 
                 screenshot.SaveAsFile(filePath);
-                TestContext.Progress.WriteLine($"Screenshot saved: {filePath}");
-
-                return Path.Combine("Screenshots", fileName);  // ✅ Return Relative Path for Extent Report
+                return filePath;
             }
             catch (Exception ex)
             {
@@ -146,6 +122,49 @@ namespace SauceHappy.Hooks
                 return null;
             }
         }
+
+        private static void SendEmailWithGmail()
+        {
+            try
+            {
+                string smtpServer = "smtp.gmail.com";
+                int smtpPort = 587;
+                string senderEmail = "vaishnavimbhat03@gmail.com";
+                string senderPassword = "gadc mhyr pkpx jljf";
+                string recipientEmail = "190230@sdmcujire.in";
+
+                MailMessage mail = new MailMessage
+                {
+                    From = new MailAddress(senderEmail),
+                    Subject = "SpecFlow Test Report",
+                    Body = "Attached is the Extent Report from the latest test execution.",
+                    IsBodyHtml = false
+                };
+
+                mail.To.Add(recipientEmail);
+                if (File.Exists(reportPath))
+                {
+                    mail.Attachments.Add(new Attachment(reportPath));
+                    TestContext.Progress.WriteLine("✅ Attached Extent Report");
+                }
+                else
+                {
+                    TestContext.Progress.WriteLine("❌ Report file not found!");
+                }
+
+                SmtpClient smtp = new SmtpClient(smtpServer, smtpPort)
+                {
+                    Credentials = new NetworkCredential(senderEmail, senderPassword),
+                    EnableSsl = true
+                };
+
+                smtp.Send(mail);
+                TestContext.Progress.WriteLine("✅ Email sent successfully via Gmail SMTP!");
+            }
+            catch (Exception ex)
+            {
+                TestContext.Progress.WriteLine($"❌ Failed to send email via Gmail SMTP: {ex.Message}");
+            }
+        }
     }
 }
-
